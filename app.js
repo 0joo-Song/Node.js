@@ -5,17 +5,35 @@ const path = require('path');
 const session = require('express-session');
 const nunjucks = require('nunjucks');
 const dotenv = require('dotenv');
+const passport = require('passport');
 
 dotenv.config();
 const pageRouter = require('./routes/page');
+const { sequelize } = require('./models');
+const passportConfig = require('./passport');
 
 const app = express();
+
+// mariaDB connect 
+const maria = require('./database/connect/maria');
+maria.connect();
+
+// passport 설정
+passportConfig(); 
+
 app.set('port', process.env.PORT || 8001);
 app.set('view engine', 'html');
 nunjucks.configure('views', {
   express: app,
   watch: true,
 });
+sequelize.sync({ force: false })
+  .then(() => {
+      console.log('데이터베이스 연결 성공');
+  })
+  .catch((err) => {
+      console.log(err);
+  });
 
 app.use(morgan('dev'));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -31,6 +49,11 @@ app.use(session({
     secure: false,
   },
 }));
+// 요청(req)에 passport 설정을 심는다
+app.use(passport.initialize());
+// req.session 객체에 passport 정보를 저장
+// req,session 객체는 express-session에서 생성하므로 passport는 express-session 미들웨어 보다 뒤에 연결해야한다.
+app.use(passport.session());
 
 app.use('/', pageRouter);
 
